@@ -1,81 +1,49 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
-import re
 import joblib
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
 
 # -----------------------------
-# Load trained model pipeline
+# Load existing model and features
 # -----------------------------
-# The pipeline should include all preprocessing + model
-# Example: OneHotEncoding + RandomForestRegressor
-pipeline = joblib.load("pipeline.pkl")  # Make sure pipeline.pkl is in the same folder
+model = joblib.load("model.pkl")
+selected_features = joblib.load("selected_features.pkl")
+categorical_features = joblib.load("categorical_features.pkl")
 
-# Load selected features list
-selected_features = joblib.load("selected_features.pkl")  # Same as used during training
-
-# -----------------------------
-# Function to extract RAM and Storage
-# -----------------------------
-def extract_memory_features(memory_str):
-    ram = None
-    storage = None
-    if isinstance(memory_str, str):
-        ram_match = re.search(r'(\d+)\s*GB\s*RAM', memory_str, re.IGNORECASE)
-        if ram_match:
-            ram = int(ram_match.group(1))
-
-        storage_match = re.search(r'(\d+)\s*GB', memory_str, re.IGNORECASE)
-        if storage_match:
-            potential_storage = int(storage_match.group(1))
-            if potential_storage != ram:
-                storage = potential_storage
-            elif ram is None:
-                storage = potential_storage
-
-        storage_range_match = re.search(r'(\d+)\s*/\s*(\d+)\s*GB', memory_str, re.IGNORECASE)
-        if storage_range_match:
-            storage = max(int(storage_range_match.group(1)), int(storage_range_match.group(2)))
-    return ram, storage
+numeric_features = [f for f in selected_features if f not in categorical_features]
 
 # -----------------------------
-# Streamlit App
+# Load your training data
 # -----------------------------
-st.title("Mobile Price Prediction")
+# Make sure your training CSV has the same columns as selected_features + target Price
+df = pd.read_csv("train_data.csv")  # replace with your CSV path
+X_train = df[selected_features]
+y_train = df["Price"]
 
-# User Inputs
-brand = st.selectbox("Select Brand", ["Vivo", "Samsung", "Xiaomi", "Oppo", "Realme", "Apple", "OnePlus", "Motorola", "Infinix"])
-ram = st.number_input("RAM (GB)", min_value=1, max_value=32, value=4)
-storage = st.number_input("Storage (GB)", min_value=8, max_value=1024, value=64)
-camera = st.text_input("Camera (MP)", value="50")
-battery = st.number_input("Battery (mAh)", min_value=1000, max_value=10000, value=5000)
+# -----------------------------
+# Create preprocessor and pipeline
+# -----------------------------
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features)
+    ],
+    remainder="passthrough"
+)
 
-# Optional Memory input (like "4GB RAM + 64GB")
-memory_input = st.text_input("Memory (optional, e.g., '4GB RAM + 64GB')", "")
+pipeline = Pipeline([
+    ("preprocessor", preprocessor),
+    ("model", model)
+])
 
-if memory_input:
-    ram_extracted, storage_extracted = extract_memory_features(memory_input)
-    if ram_extracted:
-        ram = ram_extracted
-    if storage_extracted:
-        storage = storage_extracted
+# -----------------------------
+# Fit the pipeline with training data
+# -----------------------------
+pipeline.fit(X_train, y_train)
 
-# Button to predict
-if st.button("Predict Price"):
-    # Prepare input dataframe
-    input_dict = {
-        "Brand": brand,
-        "RAM": ram,
-        "Storage": storage,
-        "Camera": camera,
-        "Battery": battery
-    }
+# -----------------------------
+# Save the pipeline
+# -----------------------------
+joblib.dump(pipeline, "pipeline.pkl")
 
-    # Ensure all selected_features exist
-    prediction_input = {feature: input_dict.get(feature, 0) for feature in selected_features}
-    input_df = pd.DataFrame([prediction_input])
-
-    # Make prediction
-    predicted_price = pipeline.predict(input_df)[0]
-
-    st.success(f"Predicted Mobile Price: PKR {predicted_price:,.0f}")
+print("pipeline.pkl created successfully! You can now use it in Streamlit.")
