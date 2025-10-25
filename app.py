@@ -5,7 +5,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from flask import Flask, request, jsonify
 import joblib # To save and load the model
 
 # Assume the dataframe 'df' and the trained 'model' are available from the notebook execution
