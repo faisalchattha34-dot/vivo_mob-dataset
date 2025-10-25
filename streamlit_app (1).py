@@ -34,7 +34,7 @@ def extract_memory_features(memory_str):
 
 # Load the trained model and data
 try:
-    model = joblib.load('model(1).pkl')
+    model = joblib.load('model.pkl')
     selected_features = joblib.load('selected_features.pkl')
     categorical_features = joblib.load('categorical_features.pkl')
     df = pd.read_csv('vivo_all_features.csv')
